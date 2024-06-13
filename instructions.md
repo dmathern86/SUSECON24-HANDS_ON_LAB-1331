@@ -209,7 +209,8 @@ First, we'll add the helm repository for Jetstack
 
 Now, we can install cert-manager:
 
-```helm install \  cert-manager jetstack/cert-manager \
+```
+helm install cert-manager jetstack/cert-manager \
   --namespace cert-manager \
   --version v1.11.0 \
   --set installCRDs=true \
@@ -234,7 +235,7 @@ helm repo add neuvector https://neuvector.github.io/neuvector-helm/
 ```
 In order to automatically generate a selfsigned TLS certificate for NeuVector, we have to configure a ClusterIssuer in cert-manager, that the NeuVector helm chart can reference:
 ```
-kubectl apply -f ~/yaml/nv_clusterIssuer_certificate.yml
+kubectl apply -f /tmp/yaml/nv_clusterIssuer_certificate.yml
 ```
 You can find more information in the [cert-manager docs](https://cert-manager.io/docs/).
 
@@ -242,7 +243,7 @@ Finally, we can install NeuVector using our `helm install` command.
 ```
 helm install neuvector neuvector/core \
   --namespace cattle-neuvector-system \
-  -f ~/yaml/neuvector-values.yaml \
+  -f /tmp/yaml/neuvector-values.yml \
   --version 2.6.0 \
   --create-namespace
 ```
