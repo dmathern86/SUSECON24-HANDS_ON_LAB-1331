@@ -16,73 +16,8 @@ kubectl apply -f ~/yaml/sample_app_service_ingress.yml
 ```
 cat ~/yaml/sample_app_service_ingress.yml
 ```
-# Step 3 - Install cert-manager
 
-cert-manager is a Kubernetes add-on to automate the management and issuance of TLS certificates from various issuing sources.
-
-The following set of steps will install cert-manager which will be used to manage the TLS certificates for NeuVector.
-
-## Run the following commands on the victim VM.
-
-First, we'll add the helm repository for Jetstack
-
-```helm repo add jetstack https://charts.jetstack.io```
-
-Now, we can install cert-manager:
-
-```helm install \  cert-manager jetstack/cert-manager \
-  --namespace cert-manager \
-  --version v1.11.0 \
-  --set installCRDs=true \
-  --create-namespace
-```
-
-Once the helm chart has installed, you can monitor the rollout status of both `cert-manager` and `cert-manager-webhook`
-
-```kubectl -n cert-manager rollout status deploy/cert-manager```
-
-You should eventually receive output similar to:
-
-`Waiting for deployment "cert-manager" rollout to finish: 0 of 1 updated replicas are available...`
-
-`deployment "cert-manager" successfully rolled out`
-
-```kubectl -n cert-manager rollout status deploy/cert-manager-webhook```
-
-# Step 2 - Installing NeuVector
-```
-helm repo add neuvector https://neuvector.github.io/neuvector-helm/
-```
-In order to automatically generate a selfsigned TLS certificate for NeuVector, we have to configure a ClusterIssuer in cert-manager, that the NeuVector helm chart can reference:
-```
-kubectl apply -f ~/yaml/nv_clusterIssuer_certificate.yml
-```
-You can find more information in the [cert-manager docs](https://cert-manager.io/docs/).
-
-Finally, we can install NeuVector using our `helm install` command.
-```
-helm install neuvector neuvector/core \
-  --namespace cattle-neuvector-system \
-  -f ~/yaml/neuvector-values.yaml \
-  --version 2.6.0 \
-  --create-namespace
-```
-# Step 3 - Accessing NeuVector
-
-***Note:*** NeuVector may not immediately be available at the link below, as it may be starting up still. Please continue to refresh until NeuVector is available.
-
-First wait until all NeuVector Pods are up and running
-
-## Run the following commands on the victim VM.
-
-```kubectl get pods -n cattle-neuvector-system```
-
-1. Access NeuVector at https://neuvector.cattle-neuvector-system.${PUBLIC_IP}.sslip.io).
-2. For this Workshop, NeuVector is installed with a self-signed certificate from a CA that is not automatically trusted by your browser. Because of this, you will see a certificate warning in your browser. You can safely skip this warning. Some Chromium based browsers may not show a skip button. If this is the case, just click anywhere on the error page and type "thisisunsafe" (without quotes). This will force the browser to bypass the warning and accept the certificate.
-3. Log in with the username "admin" and the default password "admin"
-4. Make sure to agree to the Terms & Conditions
-
-# Step 4 - Prepare the Attack
+# Step 2 - Prepare the Attack
 Let's install an application that poses as an LDAP server and provider a Java class to the vulnerable application which will create a remote connection back to the **attacker VM**. We will use python3 and  socat which are already installed on the attacker machine. Login into the attacker machine with username and password via SSH. 
 
 1. Change the promt to identify the shell.
@@ -126,7 +61,7 @@ sudo nc -lvnp 443
 ```
 
 ## Run the following commands on a second shell on the  attacker VM.
-open a second sheel to the attacker VM and we name it **attacker2**
+open a second shell to the attacker VM and we name it **attacker2**
 
 ```
 export VM2=attacker2
@@ -137,7 +72,7 @@ PS1="\u@$VM2:\w>"
 socat file:`tty`,raw,echo=0 tcp-listen:4444
 ```
 
-# Step 4 - Run attack
+# Step 3 - Run attack
 
 Now let's start the attack. The following HTTP request triggers a log4shell vulnerability because the app logs the user agent.
 
@@ -258,7 +193,78 @@ Try to log in with the token:
 
 ```doctl auth init -t $do_token```
 
-# Step 1 Showing NeuVector
+
+
+# Step 4 - Install cert-manager
+
+cert-manager is a Kubernetes add-on to automate the management and issuance of TLS certificates from various issuing sources.
+
+The following set of steps will install cert-manager which will be used to manage the TLS certificates for NeuVector.
+
+## Run the following commands on the victim VM.
+
+First, we'll add the helm repository for Jetstack
+
+```helm repo add jetstack https://charts.jetstack.io```
+
+Now, we can install cert-manager:
+
+```helm install \  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version v1.11.0 \
+  --set installCRDs=true \
+  --create-namespace
+```
+
+Once the helm chart has installed, you can monitor the rollout status of both `cert-manager` and `cert-manager-webhook`
+
+```kubectl -n cert-manager rollout status deploy/cert-manager```
+
+You should eventually receive output similar to:
+
+`Waiting for deployment "cert-manager" rollout to finish: 0 of 1 updated replicas are available...`
+
+`deployment "cert-manager" successfully rolled out`
+
+```kubectl -n cert-manager rollout status deploy/cert-manager-webhook```
+
+# Step 5 - Installing NeuVector
+```
+helm repo add neuvector https://neuvector.github.io/neuvector-helm/
+```
+In order to automatically generate a selfsigned TLS certificate for NeuVector, we have to configure a ClusterIssuer in cert-manager, that the NeuVector helm chart can reference:
+```
+kubectl apply -f ~/yaml/nv_clusterIssuer_certificate.yml
+```
+You can find more information in the [cert-manager docs](https://cert-manager.io/docs/).
+
+Finally, we can install NeuVector using our `helm install` command.
+```
+helm install neuvector neuvector/core \
+  --namespace cattle-neuvector-system \
+  -f ~/yaml/neuvector-values.yaml \
+  --version 2.6.0 \
+  --create-namespace
+```
+# Step 6 - Accessing NeuVector
+
+***Note:*** NeuVector may not immediately be available at the link below, as it may be starting up still. Please continue to refresh until NeuVector is available.
+
+First wait until all NeuVector Pods are up and running
+
+## Run the following commands on the victim VM.
+
+```kubectl get pods -n cattle-neuvector-system```
+
+1. Access NeuVector at https://neuvector.cattle-neuvector-system.${PUBLIC_IP}.sslip.io).
+2. For this Workshop, NeuVector is installed with a self-signed certificate from a CA that is not automatically trusted by your browser. Because of this, you will see a certificate warning in your browser. You can safely skip this warning. Some Chromium based browsers may not show a skip button. If this is the case, just click anywhere on the error page and type "thisisunsafe" (without quotes). This will force the browser to bypass the warning and accept the certificate.
+3. Log in with the username "admin" and the default password "admin"
+4. Make sure to agree to the Terms & Conditions
+
+
+
+
+# Step 7 Showing NeuVector
 ## Showing Vulnerabilities
 ### Show log4shell vulnerability and compliance
 1. Highlight the poor status of the node
