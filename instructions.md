@@ -2,19 +2,19 @@
 1. Login into your victim machine via ssh with username and passwort
 2. Switch to into the yaml directory
 ```
-cd yaml
+cd /tmp/yaml
 ```
 3. apply the the needed yaml files to deploy the sample application and the ingress to access it.
 ```
-kubectl apply -f ~/yaml/sample_app_deployment.yml
+kubectl apply -f /tmp/yaml/sample_app_deployment.yml
 ```
 
 ```
-kubectl apply -f ~/yaml/sample_app_service_ingress.yml
+kubectl apply -f /tmp/yaml/sample_app_service_ingress.yml
 ```
 4. Access the application via Browser. You can get the URL from the ingress yaml file.
 ```
-cat ~/yaml/sample_app_service_ingress.yml
+cat /tmp/yaml/sample_app_service_ingress.yml
 ```
 
 # Step 2 - Prepare the Attack
