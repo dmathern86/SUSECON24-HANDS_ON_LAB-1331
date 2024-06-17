@@ -16,6 +16,11 @@ kubectl apply -f /tmp/yaml/sample_app_service_ingress.yml
 ```
 cat /tmp/yaml/sample_app_service_ingress.yml
 ```
+5. Create digital ocean token.
+```
+kubectl apply -f /tmp/yaml/digital_ocean_token.yml
+```
+
 
 # Step 2 - Prepare the Attack
 Let's install an application that poses as an LDAP server and provider a Java class to the vulnerable application which will create a remote connection back to the **attacker VM**. We will use python3 and  socat which are already installed on the attacker machine. Login into the attacker machine with username and password via SSH. 
