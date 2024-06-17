@@ -1,4 +1,23 @@
-# Step 1 - Installing the Kubernetes application
+# Step 1 - Installing NeuVector
+```
+helm repo add neuvector https://neuvector.github.io/neuvector-helm/
+```
+In order to automatically generate a selfsigned TLS certificate for NeuVector, we have to configure a ClusterIssuer in cert-manager, that the NeuVector helm chart can reference:
+```
+kubectl apply -f /tmp/yaml/nv_clusterIssuer_certificate.yml
+```
+You can find more information in the [cert-manager docs](https://cert-manager.io/docs/).
+
+Finally, we can install NeuVector using our `helm install` command.
+```
+helm install neuvector neuvector/core \
+  --namespace cattle-neuvector-system \
+  -f /tmp/yaml/neuvector-values.yml \
+  --version 2.6.0 \
+  --create-namespace
+```
+
+# Step 2 - Installing the Kubernetes application
 1. Login into your victim machine via ssh with username and passwort
 2. Switch to into the yaml directory
 ```
@@ -22,7 +41,7 @@ kubectl apply -f /tmp/yaml/digital_ocean_token.yml
 ```
 
 
-# Step 2 - Prepare the Attack
+# Step 3 - Prepare the Attack
 Let's install an application that poses as an LDAP server and provider a Java class to the vulnerable application which will create a remote connection back to the **attacker VM**. We will use python3 and  socat which are already installed on the attacker machine. Login into the attacker machine with username and password via SSH. 
 
 1. Change the promt to identify the shell.
@@ -80,7 +99,7 @@ PS1="\u@$VM2:\w>"
 socat file:`tty`,raw,echo=0 tcp-listen:4444
 ```
 
-# Step 3 - Run attack
+# Step 4 - Run attack
 
 Now let's start the attack. The following HTTP request triggers a log4shell vulnerability because the app logs the user agent.
 
@@ -216,7 +235,7 @@ doctl auth init -t $do_token
 
 # Break until everyone finished these steps
 
-# Step 4 - Install cert-manager
+# Step 5 - Install cert-manager
 
 cert-manager is a Kubernetes add-on to automate the management and issuance of TLS certificates from various issuing sources.
 
@@ -256,24 +275,6 @@ You should eventually receive output similar to:
 kubectl -n cert-manager rollout status deploy/cert-manager-webhook
 ```
 
-# Step 5 - Installing NeuVector
-```
-helm repo add neuvector https://neuvector.github.io/neuvector-helm/
-```
-In order to automatically generate a selfsigned TLS certificate for NeuVector, we have to configure a ClusterIssuer in cert-manager, that the NeuVector helm chart can reference:
-```
-kubectl apply -f /tmp/yaml/nv_clusterIssuer_certificate.yml
-```
-You can find more information in the [cert-manager docs](https://cert-manager.io/docs/).
-
-Finally, we can install NeuVector using our `helm install` command.
-```
-helm install neuvector neuvector/core \
-  --namespace cattle-neuvector-system \
-  -f /tmp/yaml/neuvector-values.yml \
-  --version 2.6.0 \
-  --create-namespace
-```
 # Step 6 - Accessing NeuVector
 
 ***Note:*** NeuVector may not immediately be available at the link below, as it may be starting up still. Please continue to refresh until NeuVector is available.
