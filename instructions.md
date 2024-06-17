@@ -376,7 +376,7 @@ The request will be blocked. You can see a WAF alert under **Notifications > Sec
 
 For further forensics, you can download a package capture PCAP file directly from the alert.
 
-## Show Admission Controll
+## Use Admission Controll
 Next we want to prevent a Pod to be run as root to begin with.
 
 An admission controller in kubernetes is a small piece of software that will take the object being submitted to the API server and either allow it as-is, modify it, or block the resource from being added. In NeuVectors case, we want to block the deployment of workloads based on a set of security criteria.
