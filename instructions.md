@@ -31,7 +31,10 @@ PS1="\u@$VM:\w>"
 
 ```export PUBLIC_IP=<public ip address>```
 
-3. Download the app
+3. Install needed packages and download the app
+```
+sudo zypper in -y python3 socat
+```
 
 ```
 wget https://github.com/bashofmann/hacking-kubernetes/raw/main/exploiting-app/poc.py
@@ -41,7 +44,7 @@ wget https://github.com/bashofmann/hacking-kubernetes/raw/main/exploiting-app/ta
 pip3 install -r requirements.txt
 ```
 
-3. Download a vulnerable JDK
+4. Download a vulnerable JDK
 
 ```
 wget https://download.java.net/openjdk/jdk8u43/ri/openjdk-8u43-linux-x64.tar.gz
