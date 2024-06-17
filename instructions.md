@@ -226,7 +226,9 @@ The following set of steps will install cert-manager which will be used to manag
 
 First, we'll add the helm repository for Jetstack
 
-```helm repo add jetstack https://charts.jetstack.io```
+```
+helm repo add jetstack https://charts.jetstack.io
+```
 
 Now, we can install cert-manager:
 
@@ -240,7 +242,9 @@ helm install cert-manager jetstack/cert-manager \
 
 Once the helm chart has installed, you can monitor the rollout status of both `cert-manager` and `cert-manager-webhook`
 
-```kubectl -n cert-manager rollout status deploy/cert-manager```
+```
+kubectl -n cert-manager rollout status deploy/cert-manager
+```
 
 You should eventually receive output similar to:
 
@@ -248,7 +252,9 @@ You should eventually receive output similar to:
 
 `deployment "cert-manager" successfully rolled out`
 
-```kubectl -n cert-manager rollout status deploy/cert-manager-webhook```
+```
+kubectl -n cert-manager rollout status deploy/cert-manager-webhook
+```
 
 # Step 5 - Installing NeuVector
 ```
