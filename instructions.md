@@ -183,6 +183,15 @@ Now we are admin in the Kubernetes cluster
 
 ```kubectl get pods -A```
 
+
+Download the digital ocean cli software
+```
+cd ~
+wget https://github.com/digitalocean/doctl/releases/download/v1.94.0/doctl-1.94.0-linux-amd64.tar.gz
+tar xf ~/doctl-1.94.0-linux-amd64.tar.gz
+sudo mv ~/doctl /usr/bin
+```
+
 Get the cloud provider token
 
 ```
