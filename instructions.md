@@ -1,23 +1,5 @@
-# Step 1 - Installing NeuVector
-```
-helm repo add neuvector https://neuvector.github.io/neuvector-helm/
-```
-In order to automatically generate a selfsigned TLS certificate for NeuVector, we have to configure a ClusterIssuer in cert-manager, that the NeuVector helm chart can reference:
-```
-kubectl apply -f /tmp/yaml/nv_clusterIssuer_certificate.yml
-```
-You can find more information in the [cert-manager docs](https://cert-manager.io/docs/).
 
-Finally, we can install NeuVector using our `helm install` command.
-```
-helm install neuvector neuvector/core \
-  --namespace cattle-neuvector-system \
-  -f /tmp/yaml/neuvector-values.yml \
-  --version 2.6.0 \
-  --create-namespace
-```
-
-# Step 2 - Installing the Kubernetes application
+# Step 1 - Installing the Kubernetes application
 1. Login into your victim machine via ssh with username and passwort
 2. Switch to into the yaml directory
 ```
@@ -38,6 +20,25 @@ cat /tmp/yaml/sample_app_service_ingress.yml
 5. Create digital ocean token.
 ```
 kubectl apply -f /tmp/yaml/digital_ocean_token.yml
+```
+
+# Step 2 - Installing NeuVector
+```
+helm repo add neuvector https://neuvector.github.io/neuvector-helm/
+```
+In order to automatically generate a selfsigned TLS certificate for NeuVector, we have to configure a ClusterIssuer in cert-manager, that the NeuVector helm chart can reference:
+```
+kubectl apply -f /tmp/yaml/nv_clusterIssuer_certificate.yml
+```
+You can find more information in the [cert-manager docs](https://cert-manager.io/docs/).
+
+Finally, we can install NeuVector using our `helm install` command.
+```
+helm install neuvector neuvector/core \
+  --namespace cattle-neuvector-system \
+  -f /tmp/yaml/neuvector-values.yml \
+  --version 2.6.0 \
+  --create-namespace
 ```
 
 
