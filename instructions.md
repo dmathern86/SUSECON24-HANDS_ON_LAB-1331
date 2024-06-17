@@ -189,7 +189,9 @@ export KUBECONFIG=$(pwd)/kubeconfig_admin.yaml
 
 Now we are admin in the Kubernetes cluster
 
-```kubectl get pods -A```
+```
+kubectl get pods -A
+```
 
 
 Download the digital ocean cli software
@@ -208,9 +210,11 @@ do_token=$(kubectl get secret -n kube-system digitalocean -o jsonpath="{.data.ac
 
 Try to log in with the token:
 
-```doctl auth init -t $do_token```
+```
+doctl auth init -t $do_token
+```
 
-
+# Break until everyone finished these steps
 
 # Step 4 - Install cert-manager
 
