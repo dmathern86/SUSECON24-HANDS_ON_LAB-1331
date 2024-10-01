@@ -45,7 +45,6 @@ Now, we can install cert-manager:
 ```
 helm install cert-manager jetstack/cert-manager \
   --namespace cert-manager \
-  --version v1.11.0 \
   --set installCRDs=true \
   --create-namespace
 ```
@@ -81,7 +80,6 @@ Finally, we can install NeuVector using our `helm install` command.
 helm install neuvector neuvector/core \
   --namespace cattle-neuvector-system \
   -f /tmp/yaml/neuvector-values.yml \
-  --version 2.6.0 \
   --create-namespace
 ```
 
